@@ -9,7 +9,6 @@ import socket
 import select
 import sys
 from threading import Thread
-from ftplib import FTP
 ip_chat = ''
 port_chat = 8082
 
@@ -17,11 +16,23 @@ port_chat = 8082
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.connect((ip_chat, port_chat))
 
+
+def send_msg(sock):
+    while True:
+        message = input()
+        
+        sock.send(message.encode())
+        sys.stdout.write('<You> ')
+        sys.stdout.write(message + '\n')
+        sys.stdout.flush()
+    
+
+
 # terima dari server
 def recv_msg(sock):
-	while True:
-		data = sock.recv(2048)
-		sys.stdout.write(data.decode() + '\n')
+    while True:
+        data = sock.recv(2048)
+        sys.stdout.write(data.decode() + '\n')
 
 # Thread(target=send_msg, args=(server,)).start()
 Thread(target=recv_msg, args=(server,)).start()
