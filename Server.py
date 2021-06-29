@@ -14,33 +14,40 @@ import threading
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 ip_address = ''
-port = 8082
+port = 8080
 server.bind((ip_address, port))
 server.listen(2)
 list_of_clients = []
 ready_client = []
 ready_client_addr = []
 
+def remove(connection):
+    if connection in ready_client:
+        ready_client.remove(connection)
+
 # send message to other client
 def kirimpesan(message, connection):
     for clients in ready_client :
         if clients != connection:
-            try:
+            # try:
                 clients.send(message.encode())
-            except:
-                clients.close()
+            # except:
+            #     clients.close()
 
 #insert founded conversation into one room
 def inroom(conn,addr):
-    # print("aloha again again there!!!")
+    print("aloha there!!!")
     while True:
         try:
             data = conn.recv(2048).decode()
-            print(data)
-            message_to_send =  data
-            kirimpesan(message_to_send, conn)
+            if data:
+                
+                print(data)
+                message_to_send =  data
+                kirimpesan(message_to_send, conn)
             
-            
+            else:
+                remove(conn)
         except:
             continue
 
@@ -64,7 +71,7 @@ def readyclient(conn,addr):
                 # print("aloha there!!!")
                 for i in range(2):
                     
-                    # print("aloha again there!!!")
+                    print("aloha there!!")
                     inroom(ready_client[i], ready_client_addr[i])
                 
            
