@@ -10,7 +10,7 @@ import select
 import sys
 from threading import Thread
 ip_chat = ''
-port_chat = 8082
+port_chat = 8080
 
 #connect to server
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,26 +34,27 @@ def recv_msg(sock):
         data = sock.recv(2048)
         sys.stdout.write(data.decode() + '\n')
 
-# Thread(target=send_msg, args=(server,)).start()
+Thread(target=send_msg, args=(server,)).start()
 Thread(target=recv_msg, args=(server,)).start()
 
-while True:
-    
-    #this thing just testing
-    message="find"
-    server.send(message.encode())
-
+while True:  
     #list server socket
     socket_list=[server]
+    # socket_list=[sys.stdin]
     
     # get from list
-    read_socket, write_socket, error_socket = select.select(socket_list, [], [])
+    # read_socket, write_socket, error_socket = select.select(socket_list, [], [])
+    read_socket, write_socket, error_socket = select.select([sys.stdin], [], [],0)
+    
+    #this thing just testing
+    message = input()
+    server.send(message.encode())
     
     # Looping untuk menerima dan mengirim pesan
     for socks in read_socket:
         if socks == server:
             recv_msg(socks)
-        # else:
-        #     send_msg(socks)
+        else:
+            send_msg(socks)
     
 server.close()
