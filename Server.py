@@ -14,7 +14,7 @@ import threading
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 ip_address = ''
-port = 8080
+port = 8081
 server.bind((ip_address, port))
 server.listen(2)
 list_of_clients = []
