@@ -9,62 +9,47 @@ import socket
 import select
 import sys
 from threading import Thread
-ip_chat = ''
+import os
+import socket
+import sys
+import threading
+import time
+
+def baca_pesan(server):
+    while True:
+        #receive msg
+        data = server.recv(65535).decode("utf-8")
+        if len(data) == 0:
+            break
+
+        print(data)
+
+ip_chat = '127.0.0.1'
 port_chat = 8081
+
+username_cli = input('Masukkan Username : ')
 
 #connect to server
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.connect((ip_chat, port_chat))
 
+#send user info to server
+server.send(bytes(username_cli, "utf-8"))
 
-def send_msg(sock):
-    while True:
-        message = input()
-        
-        sock.send(message.encode()) 
-        sys.stdout.write('<You> ')
-        sys.stdout.write(message + '\n')
-        sys.stdout.flush()
-    
+#create thread for msg read
+thread_cli = threading.Thread(target=baca_pesan, args=(server,))
+thread_cli.start()
 
+print("Selamat datang, kamu sudah masuk kedalam chat room!")
 
-# terima dari server
-def recv_msg(sock):
-    while True:
-        data = sock.recv(2048)
-        sys.stdout.write(data.decode() + '\n')
+while True:
 
-Thread(target=send_msg, args=(server,)).start()
-Thread(target=recv_msg, args=(server,)).start()
-
-
-def ready():
-    #this thing just testing
+    # send/recv msg
+    dest="broadcast"
     message = input()
-    server.send(message.encode())
+    server.send(bytes("{}|{}".format(dest, message), "utf-8"))
 
-while True:  
-    
-    ready()
-    
-    #list server socket
-    socket_list=[server]
-    # socket_list=[sys.stdin]
-    
-    # get from list
-    
-    ########## uncomment the code for using
-    ########## for linux  ##########
-    read_socket, write_socket, error_socket = select.select(socket_list, [], [],0)
-    
-    ########## for windows #########
-    # read_socket, write_socket, error_socket = select.select([socket _list], [], [])
-    
-    # Looping untuk menerima dan mengirim pesan
-    for socks in read_socket:
-        if socks == server:
-            recv_msg(socks)
-        # else:
-        #     send_msg(socks)
-    
-server.close()
+    #exit
+    if message == "exit":
+        server.close()
+        break
