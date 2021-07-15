@@ -12,60 +12,99 @@ import threading
 import socket
 import threading
 
+
+ip_address = '127.0.0.1'
+port = 8081
+
 # create socket
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-ip_address = '127.0.0.1'
-port = 8081
 
 # binding socket object to IP addr and certain port
 server.bind((ip_address, port))
 
-# listen for an incoming connection
-server.listen(4)
-
 # create dictionary for client's info
-clients = {}
+# clients = {}
 
 # untuk jumlah client
-list_of_clients = []
-ready_client = []
-ready_client_addr = []
+list_of_clients, client_name= [],[]
+# ready_client_addr = []
 
 
-def remove(connection):
-    if connection in ready_client:
-        ready_client.remove(connection)
+# def remove(connection):
+#     if connection in ready_client:
+#         ready_client.remove(connection)
 
 
-# send message to all client
-def kirim_broadcast(clients, data, sender_addr_cli):
-    for conn, adrr, _ in clients.values():
-        if not (sender_addr_cli[0] == addr[0] and sender_addr_cli[1] == addr[1]):
-            kirim_pesan(conn, data)
+def mulaiChat():
 
+    print("Server sudah bekerja")
+    # listen for an incoming connection
+    server.listen()
 
-# send direct msg
-def kirim_pesan(conn, data):
-    conn.send(bytes(data, "utf-8"))
+    while True:
+        # get connection
+        conn, addr = server.accept()
 
+        # returns a new connection to the client
+        # and  the address bound to it
+        conn.send("NAME".encode("utf-8"))
+
+        # calculate how many connection in list
+        # size = 0
+        # for x in list_of_clients:
+        #     size += 1
+        # print(list_of_clients[size - 1])
+        # print('connected\n')
+        # print("sum of client is: ", size)
+
+        # ambil username client
+        username_cli = conn.recv(65535).decode("utf-8")
+
+        # put the connection to list
+        client_name.append(username_cli)
+        list_of_clients.append(conn)
+
+        # print(username_cli, "joined")
+        print(f"Name is :{username_cli}")
+
+        # broadcast message
+        kirim_broadcast(f"{username_cli} has joined the chat!".encode("utf-8"))
+        conn.send('Connection successful!'.encode("utf-8"))
+
+        # create new thread for msg read and relay the thread
+        thread_cli = threading.Thread(target=baca_pesan, args=(conn, addr))
+        thread_cli.start()
+
+        # no. of clients connected
+        # to the server
+        print(f"active connections {threading.activeCount() - 1}")
+
+        # # save client info to dictionary
+        # clients[username_cli] = (conn, addr, thread_cli)
 
 # membaca pesan
-def baca_pesan(clients, conn, addr, username_cli):
-    while True:
+def baca_pesan(conn, addr):
+
+    print(f"new connection {addr}")
+    connected = True
+    while connected:
         # menerima pesan
-        data = conn.recv(65535)
-        if len(data) == 0:
-            break
+        msg = conn.recv(65535)
+
+        # if len(data) == 0:
+        #     break
 
         # parsing msg
-        dest, msg_raw = data.decode("utf-8").split("|")
-        msg = "<{}>: {}".format(username_cli, msg_raw)
+        # dest, msg_raw = data.decode("utf-8").split("|")
+        # msg = "<{}>: {}".format(username_cli, msg_raw)
 
-        print(msg)
+        # print(msg)
+
         # relay msg to all client
-        if dest == "broadcast":
-            kirim_broadcast(clients, msg, addr)
+        kirim_broadcast(msg)
+        # if dest == "broadcast":
+        #     kirim_broadcast(msg)
 
         # direct msg
         # else:
@@ -73,32 +112,13 @@ def baca_pesan(clients, conn, addr, username_cli):
         #     send_msg(dest_sock_cli, msg)
 
     conn.close()
-    print("Connection Closed", addr)
+    # print("Connection Closed", addr)
 
+# send message to all client
+def kirim_broadcast(message):
+    for client in list_of_clients:
+        client.send(message)
 
-while True:
-    # get connection
-    conn, addr = server.accept()
-
-    # put the connection to list
-    list_of_clients.append(conn)
-
-    # calculate how many connection in list
-    size = 0
-    for x in list_of_clients:
-        size += 1
-    print(list_of_clients[size - 1])
-    print('connected\n')
-    print("sum of client is: ", size)
-
-    # ambil username client
-    username_cli = conn.recv(65535).decode("utf-8")
-    print(username_cli, "joined")
-
-    # create new thread for msg read and relay the thread
-    thread_cli = threading.Thread(target=baca_pesan, args=(clients, conn, addr, username_cli))
-    thread_cli.start()
-
-    # save client info to dictionary
-    clients[username_cli] = (conn, addr, thread_cli)
+# panggil method untuk memulai komunikasi
+mulaiChat()
 
