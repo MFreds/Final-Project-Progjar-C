@@ -5,171 +5,130 @@ Created on Mon Jul  5 13:52:26 2021
 
 @author: basuki
 """
+from tkinter import Tk, Frame, Scrollbar, Label, END, Entry, Text, VERTICAL, Button, \
+    messagebox  # Tkinter Python Module for GUI
+import socket  # Sockets for network connection
+import threading  # for multiple proccess
 
-import socket
-import select
-import sys
-from threading import Thread
-import os
-import socket
-import sys
-import threading
-import time
+# ip_chat = '127.0.0.1'
+# port_chat = 8081
 
-import tkinter as tk
-from tkinter import *
-from tkinter import font
-from tkinter import ttk
-
-ip_chat = '127.0.0.1'
-port_chat = 8081
-
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((ip_chat, port_chat))
-
-# GUI class for the chat
 class GUI:
-    # constructor method
-    def __init__(self):
-        self.root = tk.Tk()
-        self.root.withdraw()
+    client_socket = None
+    last_received_message = None
 
-        # login window
-        self.login = Toplevel()
-        self.login.title("login EMO")
-        self.login.resizable(width=False, height=False)
-        self.login.configure(width=400, height=300)
+    def __init__(self, master):
+        self.root = master
+        self.chat_transcript_area = None
+        self.name_widget = None
+        self.enter_text_widget = None
+        self.join_button = None
+        self.buat_socket()
+        self.initialize_gui()
+        self.listen_incoming_msg_in_thread()
 
-        # label
-        self.pls = Label(self.login, text="Please login to continue", justify=CENTER, font="Helvetica 14 bold")
-        self.pls.place(relheight=0.15, relx=0.2, rely=0.07)
-        self.labelName = Label(self.login, text="Name: ", font="Helvetica 12")
-        self.labelName.place(relheight=0.2, relx=0.1, rely=0.2)
+    def buat_socket(self):
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # initialazing socket with TCP and IPv4
+        ip = '127.0.0.1'  # IP address
+        port = 8081  # TCP port
+        self.client_socket.connect((ip, port))  # connect to the server
 
-        # create a entry box
-        self.entryName = Entry(self.login, font="Helvetica 14")
-        self.entryName.place(relwidth=0.4, relheight=0.12, relx=0.35, rely=0.2)
-        self.entryName.focus()
+    def initialize_gui(self):  # GUI initializer
+        self.root.title("EMO Chat")
+        self.root.resizable(0, 0)
+        self.display_chat_box()
+        self.display_name_section()
+        self.display_chat_entry_box()
 
-        # create a Continue Button
-        # along with action
-        self.go = Button(self.login, text="CONTINUE", font="Helvetica 14 bold", command=lambda: self.goAhead(self.entryName.get()))
-        self.go.place(relx=0.4, rely=0.55)
+    def listen_incoming_msg_in_thread(self):
+        thread = threading.Thread(target=self.terima_pesan,
+                                  args=(self.client_socket,))  # Create a thread for the send and receive in same time
+        thread.start()
 
-        self.root.mainloop()
-
-    def goAhead(self,name):
-
-        # client.send(bytes(name, "utf-8"))
-
-        self.login.destroy()
-        self.layout(name)
-
-        # thread to receive message
-        thread_cli = threading.Thread(target=self.baca_pesan)
-        thread_cli.start()
-        #
-        # print("Selamat datang, kamu sudah masuk kedalam chat room!")
-
-
-    def layout(self,name):
-        self.name = name
-
-        self.root.deiconify()
-
-        self.root.title("CHATROOM EMO")
-
-        self.root.resizable(width=False, height=False)
-
-        self.root.configure(width=470, height=550, bg="#17202A")
-
-        self.labelHead = Label(self.root, bg="#17202A", fg="#EAECEE", text=self.name, font="Helvetica 13 bold", pady=5)
-
-        self.labelHead.place(relwidth=1)
-
-        self.line = Label(self.root, width=450, bg="#ABB2B9")
-
-        self.line.place(relwidth=1, rely=0.07, relheight=0.012)
-
-        self.textCons = Text(self.root, width=20, height=2, bg="#B8D8BE", fg="#EAECEE", font="Helvetica 14", padx=5, pady=5)
-
-        self.textCons.place(relheight=0.745, relwidth=1, rely=0.08)
-
-        self.labelBottom = Label(self.root, bg="#ABB2B9", height=80)
-
-        self.labelBottom.place(relwidth=1, rely=0.825)
-
-        self.entryMsg = Entry(self.labelBottom,
-                         bg="#2C3E50",
-                         fg="#EAECEE",
-                         font="Helvetica 13")
-
-        self.entryMsg.place(relwidth=0.74,
-                       relheight=0.06,
-                       rely=0.008,
-                       relx=0.011)
-
-        self.entryMsg.focus()
-
-        # send button
-        self.buttonMsg = Button(self.labelBottom, text="Send", font="Helvetica 10 bold", width=20, bg="#ABB2B9",
-                           command=lambda: self.sendButton(self.entryMsg.get()))
-
-        self.buttonMsg.place(relx=0.77, rely=0.008, relheight=0.06, relwidth=0.22)
-
-        self.textCons.config(cursor="arrow")
-
-        scrollbar = Scrollbar(self.textCons)
-        scrollbar.place(relheight=1,
-                        relx=0.974)
-        scrollbar.config(command=self.textCons.yview)
-        self.textCons.config(state="DISABLED")
-
-
-    def sendButton(self,msg):
-        self.textCons.config(state=DISABLED)
-        self.msg = msg
-        self.entryMsg.delete(0, END)
-        send = threading.Thread(target=self.sendMessage)
-        send.start()
-
-    def baca_pesan(self):
+    # function to recieve msg
+    def terima_pesan(self, so):
         while True:
-            try:
-                # receive msg
-                message = client.recv(65535).decode("utf-8")
-
-                # if the messages from the server is NAME send the client's name
-                if message == 'NAME':
-                    # print("hai")
-                    ########### kirim nama client e
-                    client.send(name.encode("utf-8"))
-
-                else:
-                    # insert messages to text box
-                    self.textCons.config(state=NORMAL)
-                    self.textCons.insert(END,
-                                    message + "\n\n")
-
-                    self.textCons.config(state=DISABLED)
-                    self.textCons.see(END)
-            except:
-                # an error will be printed on the command line or console if there's an error
-                print("An error occured!")
-                client.close()
+            msg = so.recv(256)
+            if not msg:
                 break
+            message = msg.decode('utf-8')
 
-            # ngebuat tampilan utama hide
+            if "joined" in message:
+                user = message.split(":")[1]
+                message = user + " has joined"
+                self.chat_transcript_area.insert('end', message + '\n')
+                self.chat_transcript_area.yview(END)
+            else:
+                self.chat_transcript_area.insert('end', message + '\n')
+                self.chat_transcript_area.yview(END)
 
-    def sendMessage(self):
-        self.textCons.config(state=DISABLED)
-        while True:
-            message = (f"{self.name}: {self.msg}")
-            client.send(message.encode("utf-8"))
-            break
+        so.close()
 
-# create a GUI class object
-g = GUI()
+    def display_name_section(self):
+        frame = Frame()
+        Label(frame, text='Masukkan Nama:', font=("Helvetica", 16)).pack(side='left', padx=10)
+        self.name_widget = Entry(frame, width=50, borderwidth=2)
+        self.name_widget.pack(side='left', anchor='e')
+        self.join_button = Button(frame, text="Join", width=10, command=self.on_join).pack(side='left')
+        frame.pack(side='top', anchor='nw')
+
+    def display_chat_box(self):
+        frame = Frame()
+        Label(frame, text='Chat Box:', font=("Serif", 12)).pack(side='top', anchor='w')
+        self.chat_transcript_area = Text(frame, width=60, height=10, font=("Serif", 12))
+        scrollbar = Scrollbar(frame, command=self.chat_transcript_area.yview, orient=VERTICAL)
+        self.chat_transcript_area.config(yscrollcommand=scrollbar.set)
+        self.chat_transcript_area.bind('<KeyPress>', lambda e: 'break')
+        self.chat_transcript_area.pack(side='left', padx=10)
+        scrollbar.pack(side='right', fill='y')
+        frame.pack(side='top')
+
+    def display_chat_entry_box(self):
+        frame = Frame()
+        Label(frame, text='Masukkan Pesan:', font=("Serif", 12)).pack(side='top', anchor='w')
+        self.enter_text_widget = Text(frame, width=60, height=3, font=("Serif", 12))
+        self.enter_text_widget.pack(side='left', pady=15)
+        self.enter_text_widget.bind('<Return>', self.on_enter_key_pressed)
+        frame.pack(side='top')
+
+    def on_join(self):
+        if len(self.name_widget.get()) == 0:
+            messagebox.showerror(
+                "Enter your name", "Enter your name to send a message")
+            return
+        self.name_widget.config(state='disabled')
+        self.client_socket.send(("joined:" + self.name_widget.get()).encode('utf-8'))
+
+    def on_enter_key_pressed(self, event):
+        if len(self.name_widget.get()) == 0:
+            messagebox.showerror("Enter your name", "Enter your name to send a message")
+            return
+        self.send_chat()
+        self.clear_text()
+
+    def clear_text(self):
+        self.enter_text_widget.delete(1.0, 'end')
+
+    def send_chat(self):
+        senders_name = self.name_widget.get().strip() + ": "
+        data = self.enter_text_widget.get(1.0, 'end').strip()
+        message = (senders_name + data).encode('utf-8')
+        self.chat_transcript_area.insert('end', message.decode('utf-8') + '\n')
+        self.chat_transcript_area.yview(END)
+        self.client_socket.send(message)
+        self.enter_text_widget.delete(1.0, 'end')
+        return 'break'
+
+    def on_close_window(self):
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.root.destroy()
+            self.client_socket.close()
+            exit(0)
 
 
-
+# the mail function
+if __name__ == '__main__':
+    root = Tk()
+    gui = GUI(root)
+    root.protocol("WM_DELETE_WINDOW", gui.on_close_window)
+    root.mainloop()
